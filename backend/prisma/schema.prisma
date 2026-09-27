@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ORGANIZER
+  ADMIN
+}
+
+enum EventCategory {
+  MOVIE
+  JAGRAN
+  RAMLEELA
+  BHAGWAT_KATHA
+  TEMPLE
+  SATSANG
+  CONCERT
+  CULTURAL
+  SPIRITUAL
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  BOOKING
+  DONATION
+}
+
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  password         String
+  name             String
+  phone            String?
+  avatar           String?
+  role             Role           @default(USER)
+  isActive         Boolean        @default(true)
+  emailVerified    Boolean        @default(false)
+  verifyToken      String?
+  verifyTokenExp   DateTime?
+  resetToken       String?
+  resetTokenExp    DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organizer     Organizer?
+  bookings      Booking[]
+  reviews       Review[]
+  wishlist      Wishlist[]
+  notifications Notification[]
+  payments      Payment[]
+
+  @@map("users")
+}
+
+model Organizer {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgName     String
+  description String?
+  logo        String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      Event[]
+
+  @@map("organizers")
+}
+
+model Event {
+  id              String        @id @default(uuid())
+  title           String
+  description     String
+  category        EventCategory
+  status          EventStatus   @default(PENDING)
+  banner          String?
+  venue           String
+  address         String
+  city            String
+  latitude        Float?
+  longitude       Float?
+  startDate       DateTime
+  endDate         DateTime?
+  ticketPrice     Float
+  totalSeats      Int
+  availableSeats  Int
+  isLiveStream    Boolean       @default(false)
+  liveStreamUrl   String?
+  isTrending      Boolean       @default(false)
+  isFeatured      Boolean       @default(false)
+  rating          Float         @default(0)
+  reviewCount     Int           @default(0)
+  organizerId     String
+  organizer       Organizer     @relation(fields: [organizerId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  seats           Seat[]
+  bookings        Booking[]
+  reviews         Review[]
+  wishlist        Wishlist[]
+
+  @@index([category])
+  @@index([status])
+  @@index([city])
+  @@map("events")
+}
+
+model Seat {
+  id           String    @id @default(uuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  row          String
+  number       Int
+  label        String
+  isBooked     Boolean   @default(false)
+  bookingId    String?
+  booking      Booking?  @relation(fields: [bookingId], references: [id])
+  heldByUserId String?
+  heldUntil    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([eventId, row, number])
+  @@map("seats")
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  bookingCode   String        @unique
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  eventId       String
+  event         Event         @relation(fields: [eventId], references: [id])
+  seats         Seat[]
+  totalAmount   Float
+  donationAmount Float         @default(0)
+  discountAmount Float         @default(0)
+  couponCode     String?
+  status         BookingStatus @default(PENDING)
+  holdExpiresAt  DateTime?
+  qrCode         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  payment       Payment?
+
+  @@map("bookings")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  bookingId       String?       @unique
+  booking         Booking?      @relation(fields: [bookingId], references: [id])
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  amount          Float
+  type            PaymentType   @default(BOOKING)
+  status          PaymentStatus @default(PENDING)
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
+  @@map("reviews")
+}
+
+model Coupon {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  description     String?
+  discountPercent Float?
+  discountAmount  Float?
+  minOrderAmount  Float     @default(0)
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@map("coupons")
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@map("wishlist")
+}

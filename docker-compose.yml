@@ -1,0 +1,17 @@
+# FLYXO local PostgreSQL — run: docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flyxo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: flyxo123
+      POSTGRES_DB: flyxo_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - flyxo_pg_data:/var/lib/postgresql/data
+
+volumes:
+  flyxo_pg_data:
